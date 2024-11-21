@@ -34,36 +34,36 @@ class BeliefStateAgent(Agent):
 
         pass
 
-def observation_matrix(self, walls, evidence, position):
-    """
-    Builds the observation matrix O_t = P(e_t | X_t)
+    def observation_matrix(self, walls, evidence, position):
+        """
+        Builds the observation matrix O_t = P(e_t | X_t)
     
-    Arguments:
-        walls: The W x H grid of walls.
-        evidence: A noisy ghost distance evidence e_t.
-        position: The current position of Pacman.
+        Arguments:
+            walls: The W x H grid of walls.
+            evidence: A noisy ghost distance evidence e_t.
+            position: The current position of Pacman.
     
-    Returns:
-        The W x H observation matrix O_t.
-    """
-    width, height = walls.width, walls.height
-    O_t = np.zeros((width, height))
+        Returns:
+            The W x H observation matrix O_t.
+        """
+        width, height = walls.width, walls.height
+        O_t = np.zeros((width, height))
 
-    n, p = 4, 0.5
+        n, p = 4, 0.5
 
-    for x in range(width):
-        for y in range(height):
-            if walls[x][y]:
-                continue
+        for x in range(width):
+            for y in range(height):
+                if walls[x][y]:
+                    continue
 
-            true_distance = manhattanDistance(position, (x, y))
+                true_distance = manhattanDistance(position, (x, y))
 
-            noise_probability = scipy.stats.binom.pmf(evidence - true_distance + n, n, p)
-            O_t[x, y] = noise_probability
+                noise_probability = scipy.stats.binom.pmf(evidence - true_distance + n, n, p)
+                O_t[x, y] = noise_probability
 
-    O_t /= np.sum(O_t)
+        O_t /= np.sum(O_t)
 
-    return O_t
+        return O_t
 
 
     def update(self, walls, belief, evidence, position):
