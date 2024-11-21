@@ -1,5 +1,5 @@
 import numpy as np
-
+import scipy.stats
 from pacman_module.game import Agent, Directions, manhattanDistance
 
 
@@ -34,23 +34,37 @@ class BeliefStateAgent(Agent):
 
         pass
 
-    def observation_matrix(self, walls, evidence, position):
-        """Builds the observation matrix
+def observation_matrix(self, walls, evidence, position):
+    """
+    Builds the observation matrix O_t = P(e_t | X_t)
+    
+    Arguments:
+        walls: The W x H grid of walls.
+        evidence: A noisy ghost distance evidence e_t.
+        position: The current position of Pacman.
+    
+    Returns:
+        The W x H observation matrix O_t.
+    """
+    width, height = walls.width, walls.height
+    O_t = np.zeros((width, height))
 
-            O_t = P(e_t | X_t)
+    n, p = 4, 0.5
 
-        given a noisy ghost distance evidence e_t and the current Pacman
-        position.
+    for x in range(width):
+        for y in range(height):
+            if walls[x][y]:
+                continue
 
-        Arguments:
-            walls: The W x H grid of walls.
-            evidence: A noisy ghost distance evidence e_t.
-            position: The current position of Pacman.
+            true_distance = manhattanDistance(position, (x, y))
 
-        Returns:
-            The W x H observation matrix O_t.
-        """
-        pass
+            noise_probability = scipy.stats.binom.pmf(evidence - true_distance + n, n, p)
+            O_t[x, y] = noise_probability
+
+    O_t /= np.sum(O_t)
+
+    return O_t
+
 
     def update(self, walls, belief, evidence, position):
         """Updates the previous ghost belief state
