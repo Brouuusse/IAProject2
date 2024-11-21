@@ -50,7 +50,7 @@ class BeliefStateAgent(Agent):
         Returns:
             The W x H observation matrix O_t.
         """
-
+        #feur wall
         pass
 
     def update(self, walls, belief, evidence, position):
