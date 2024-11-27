@@ -31,8 +31,28 @@ class BeliefStateAgent(Agent):
             of T_t is the probability P(X_t = (k, l) | X_{t-1} = (i, j)) for
             the ghost to move from (i, j) to (k, l).
         """
+        T_t = np.zeros((walls.width, walls.height, walls.width, walls.height))
+        for i in range(walls.width):
+            for j in range(walls.height):
+                if walls[i][j]:
+                    continue
+                for k in range(walls.width):
+                    for l in range(walls.height):
+                        if walls[k][l]:
+                            continue
+                        if manhattanDistance((i, j), (k, l)) == 1:
+                            if manhattanDistance((k, l), position) < manhattanDistance((i, j), position):
+                                T_t[i][j][k][l] = 1
+                            else:
+                                if self.ghostType == "terrified":
+                                    T_t[i][j][k][l] = 8
+                                elif self.ghostType == "afraid":
+                                    T_t[i][j][k][l] = 2
+                                else:
+                                    T_t[i][j][k][l] = 1
+                T_t[i][j] = T_t[i][j]/np.sum(T[i][j])
 
-        pass
+        return T_t
 
     def observation_matrix(self, walls, evidence, position):
         """
