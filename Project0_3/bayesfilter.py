@@ -86,28 +86,46 @@ class BeliefStateAgent(Agent):
         return O_t
     
     
-    def update(self, walls, belief, evidence, position):
-        """Updates the previous ghost belief state
+def update(self, walls, belief, evidence, position):
+    """Updates the previous ghost belief state
 
-            b_{t-1} = P(X_{t-1} | e_{1:t-1})
+        b_{t-1} = P(X_{t-1} | e_{1:t-1})
 
-        given a noisy ghost distance evidence e_t and the current Pacman
-        position.
+    given a noisy ghost distance evidence e_t and the current Pacman
+    position.
 
-        Arguments:
-            walls: The W x H grid of walls.
-            belief: The belief state for the previous ghost position b_{t-1}.
-            evidence: A noisy ghost distance evidence e_t.
-            position: The current position of Pacman.
+    Arguments:
+        walls: The W x H grid of walls.
+        belief: The belief state for the previous ghost position b_{t-1}.
+        evidence: A noisy ghost distance evidence e_t.
+        position: The current position of Pacman.
 
-        Returns:
-            The updated ghost belief state b_t as a W x H matrix.
-        """
+    Returns:
+        The updated ghost belief state b_t as a W x H matrix.
+    """
+    T = self.transition_matrix(walls, position)
+    O = self.observation_matrix(walls, evidence, position)
 
-        T = self.transition_matrix(walls, position)
-        O = self.observation_matrix(walls, evidence, position)
+    width, height = walls.width, walls.height
+    new_belief = np.zeros((width, height))
 
-        pass
+    for x in range(width):
+        for y in range(height):
+            if walls[x][y]:
+                continue
+
+            transition_sum = 0
+            for i in range(width):
+                for j in range(height):
+                    if walls[i][j]:
+                        continue
+                    transition_sum += T[i][j][x][y] * belief[i][j]
+
+            new_belief[x][y] = O[x][y] * transition_sum
+
+    new_belief /= np.sum(new_belief)
+
+    return new_belief
 
     def get_action(self, state):
         """Updates the previous belief states given the current state.
@@ -148,6 +166,35 @@ class PacmanAgent(Agent):
 
     def __init__(self):
         super().__init__()
+        
+    def getLegalActions(self, position, walls):
+        """
+        Détermine les mouvements possibles pour Pacman.
+
+        Arguments:
+            position: La position actuelle de Pacman (x, y).
+        walls: Le W x H grid des murs.
+
+        Returns:
+            Une liste de mouvements possibles (Directions.NORTH, Directions.SOUTH, etc.).
+        """
+        x, y = position
+        actions = []
+
+        if not walls[x][y + 1]:
+            actions.append(Directions.NORTH)
+        if not walls[x][y - 1]: 
+            actions.append(Directions.SOUTH)
+        if not walls[x - 1][y]:
+            actions.append(Directions.WEST)
+        if not walls[x + 1][y]:
+            actions.append(Directions.EAST)
+
+        if len(actions) == 0:
+            actions.append(Directions.STOP)
+
+        return actions
+
 
     def _get_action(self, walls, beliefs, eaten, position):
         """
@@ -160,50 +207,44 @@ class PacmanAgent(Agent):
         Returns:
             A legal move as defined in `game.Directions`.
         """
-        # A changer mais je ne sais plus où sont les legal action
-        legal_actions = [
-            Directions.NORTH,
-            Directions.SOUTH,
-            Directions.EAST,
-            Directions.WEST
-        ]
+        # Correspondance locale des directions avec les vecteurs
+        direction_deltas = {
+            Directions.NORTH: (0, 1),
+            Directions.SOUTH: (0, -1),
+            Directions.EAST: (1, 0),
+            Directions.WEST: (-1, 0),
+            Directions.STOP: (0, 0)
+        }
 
-        # Filtre (à changer)
-        legal_actions = [
-            action for action in legal_actions
-            if not walls[int(position[0] + Directions.DELTAS[action][0])][int(position[1] + Directions.DELTAS[action][1])]
-        ]
-        
-        # Init pour les actions 
+        legal_actions = self.getLegalActions(position, walls)
+
+        # Initialisation pour les actions
         best_action = Directions.STOP
         min_distance = float('inf')
 
-        #Boucle en fct des croyance (on ignore les fantômes déjà mangés)
+        # Boucle en fonction des croyances (on ignore les fantômes déjà mangés)
         for i, belief in enumerate(beliefs):
             if eaten[i]:
-                continue  
+                continue
 
-            #Utilisation matrice de transition pour croyances
-            transition = self.transition_matrix(walls, position) 
-            predicted_belief = np.tensordot(belief, transition, axes=((0, 1), (0, 1)))
+            # On trouve la position la plus probable
+            max_belief_position = np.unravel_index(np.argmax(belief), belief.shape)
 
-            #On trouve la position la plus probable
-            max_belief_position = np.unravel_index(np.argmax(predicted_belief), predicted_belief.shape)
-
-            #On évalue la distance avec cette position
+            # On évalue la distance avec cette position pour chaque action légale
             for action in legal_actions:
-                vector = Directions.DELTAS[action]
-                new_position = (position[0] + vector[0], position[1] + vector[1])
+                dx, dy = direction_deltas[action]
+                new_position = (position[0] + dx, position[1] + dy)
 
-                #Manahatan distance
+                # Calcul de la distance de Manhattan
                 distance = manhattanDistance(new_position, max_belief_position)
 
                 if distance < min_distance:
                     min_distance = distance
                     best_action = action
 
-        #return meilleure action
+        # Retourne la meilleure action
         return best_action
+
 
     def get_action(self, state):
         """Given a Pacman game state, returns a legal move.
