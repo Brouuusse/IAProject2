@@ -50,7 +50,7 @@ class BeliefStateAgent(Agent):
                                     T_t[i][j][k][l] = 2
                                 else:
                                     T_t[i][j][k][l] = 1
-                T_t[i][j] = T_t[i][j]/np.sum(T[i][j])
+                T_t[i][j] = T_t[i][j]/np.sum(T_t[i][j])
 
         return T_t
 
