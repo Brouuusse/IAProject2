@@ -207,7 +207,6 @@ class PacmanAgent(Agent):
         Returns:
             A legal move as defined in `game.Directions`.
         """
-        # Correspondance locale des directions avec les vecteurs
         direction_deltas = {
             Directions.NORTH: (0, 1),
             Directions.SOUTH: (0, -1),
@@ -218,24 +217,19 @@ class PacmanAgent(Agent):
 
         legal_actions = self.getLegalActions(position, walls)
 
-        # Initialisation pour les actions
         best_action = Directions.STOP
         min_distance = float('inf')
 
-        # Boucle en fonction des croyances (on ignore les fantômes déjà mangés)
         for i, belief in enumerate(beliefs):
             if eaten[i]:
                 continue
 
-            # On trouve la position la plus probable
             max_belief_position = np.unravel_index(np.argmax(belief), belief.shape)
 
-            # On évalue la distance avec cette position pour chaque action légale
             for action in legal_actions:
                 dx, dy = direction_deltas[action]
                 new_position = (position[0] + dx, position[1] + dy)
 
-                # Calcul de la distance de Manhattan
                 distance = manhattanDistance(new_position, max_belief_position)
 
                 if distance < min_distance:
