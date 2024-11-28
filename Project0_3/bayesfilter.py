@@ -84,8 +84,8 @@ class BeliefStateAgent(Agent):
         O_t /= np.sum(O_t)
 
         return O_t
-
-
+    
+    
     def update(self, walls, belief, evidence, position):
         """Updates the previous ghost belief state
 
@@ -160,8 +160,50 @@ class PacmanAgent(Agent):
         Returns:
             A legal move as defined in `game.Directions`.
         """
+        # A changer mais je ne sais plus où sont les legal action
+        legal_actions = [
+            Directions.NORTH,
+            Directions.SOUTH,
+            Directions.EAST,
+            Directions.WEST
+        ]
 
-        return Directions.STOP
+        # Filtre (à changer)
+        legal_actions = [
+            action for action in legal_actions
+            if not walls[int(position[0] + Directions.DELTAS[action][0])][int(position[1] + Directions.DELTAS[action][1])]
+        ]
+        
+        # Init pour les actions 
+        best_action = Directions.STOP
+        min_distance = float('inf')
+
+        #Boucle en fct des croyance (on ignore les fantômes déjà mangés)
+        for i, belief in enumerate(beliefs):
+            if eaten[i]:
+                continue  
+
+            #Utilisation matrice de transition pour croyances
+            transition = self.transition_matrix(walls, position) 
+            predicted_belief = np.tensordot(belief, transition, axes=((0, 1), (0, 1)))
+
+            #On trouve la position la plus probable
+            max_belief_position = np.unravel_index(np.argmax(predicted_belief), predicted_belief.shape)
+
+            #On évalue la distance avec cette position
+            for action in legal_actions:
+                vector = Directions.DELTAS[action]
+                new_position = (position[0] + vector[0], position[1] + vector[1])
+
+                #Manahatan distance
+                distance = manhattanDistance(new_position, max_belief_position)
+
+                if distance < min_distance:
+                    min_distance = distance
+                    best_action = action
+
+        #return meilleure action
+        return best_action
 
     def get_action(self, state):
         """Given a Pacman game state, returns a legal move.
