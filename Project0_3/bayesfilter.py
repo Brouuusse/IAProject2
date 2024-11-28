@@ -79,9 +79,9 @@ class BeliefStateAgent(Agent):
 
                 true_distance = manhattanDistance(position, (x, y))
                 k = abs(evidence - true_distance)
-                if k >= 2:
-                    O_t[x, y] = 0
-                    continue
+                # if k >= 2:
+                #     O_t[x, y] = 0
+                #     continue
 
                 noise_probability = scipy.stats.binom.pmf(k, n, p)
                 O_t[x, y] = noise_probability
@@ -206,14 +206,14 @@ class PacmanAgent(Agent):
 
         max_belief_positions = []
         
-        print(beliefs)
+        # print(beliefs)
         
         
         for i, belief in enumerate(beliefs):
             
-            print("belief : ", belief)
-            print("i : ", i)
-            print("eaten : ", eaten)
+            # print("belief : ", belief)
+            # print("i : ", i)
+            # print("eaten : ", eaten)
             if not eaten[i]:
                 max_belief_value = np.max(belief)
                 max_belief_positions.append([(x, y) for x in range(belief.shape[0]) for y in range(belief.shape[1]) if belief[x, y] == max_belief_value])
