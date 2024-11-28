@@ -86,46 +86,46 @@ class BeliefStateAgent(Agent):
         return O_t
     
     
-def update(self, walls, belief, evidence, position):
-    """Updates the previous ghost belief state
+    def update(self, walls, belief, evidence, position):
+        """Updates the previous ghost belief state
 
         b_{t-1} = P(X_{t-1} | e_{1:t-1})
 
-    given a noisy ghost distance evidence e_t and the current Pacman
-    position.
+        given a noisy ghost distance evidence e_t and the current Pacman
+        position.
 
-    Arguments:
-        walls: The W x H grid of walls.
-        belief: The belief state for the previous ghost position b_{t-1}.
-        evidence: A noisy ghost distance evidence e_t.
-        position: The current position of Pacman.
+        Arguments:
+            walls: The W x H grid of walls.
+            belief: The belief state for the previous ghost position b_{t-1}.
+            evidence: A noisy ghost distance evidence e_t.
+            position: The current position of Pacman.
 
-    Returns:
-        The updated ghost belief state b_t as a W x H matrix.
-    """
-    T = self.transition_matrix(walls, position)
-    O = self.observation_matrix(walls, evidence, position)
+        Returns:
+            The updated ghost belief state b_t as a W x H matrix.
+        """
+        T = self.transition_matrix(walls, position)
+        O = self.observation_matrix(walls, evidence, position)
 
-    width, height = walls.width, walls.height
-    new_belief = np.zeros((width, height))
+        width, height = walls.width, walls.height
+        new_belief = np.zeros((width, height))
 
-    for x in range(width):
-        for y in range(height):
-            if walls[x][y]:
-                continue
+        for x in range(width):
+            for y in range(height):
+                if walls[x][y]:
+                    continue
 
-            transition_sum = 0
-            for i in range(width):
-                for j in range(height):
-                    if walls[i][j]:
-                        continue
-                    transition_sum += T[i][j][x][y] * belief[i][j]
+                transition_sum = 0
+                for i in range(width):
+                    for j in range(height):
+                        if walls[i][j]:
+                            continue
+                        transition_sum += T[i][j][x][y] * belief[i][j]
 
-            new_belief[x][y] = O[x][y] * transition_sum
+                new_belief[x][y] = O[x][y] * transition_sum
 
-    new_belief /= np.sum(new_belief)
+        new_belief /= np.sum(new_belief)
 
-    return new_belief
+        return new_belief
 
     def get_action(self, state):
         """Updates the previous belief states given the current state.
