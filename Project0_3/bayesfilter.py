@@ -40,13 +40,6 @@ class BeliefStateAgent(Agent):
 
         def out_of_bounds(x, y, max_x, max_y):
             return x < 0 or y < 0 or x >= max_x or y >= max_y
-
-        def count_surrounding_walls(x, y, max_x, max_y, walls):
-            count = 0
-            for position in surrounding_tiles(x, y):
-                if not out_of_bounds(position[0], position[1], max_x, max_y) and walls[position[0]][position[1]]:
-                    count += 1
-            return count
         
         if (self.ghost == "fearless"):
             fear_factor = 0.0
