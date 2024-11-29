@@ -19,41 +19,70 @@ class BeliefStateAgent(Agent):
     def transition_matrix(self, walls, position):
         """Builds the transition matrix
 
-            T_t = P(X_t | X_{t-1})
+        T_t = P(X_t | X_{t-1})
 
-        given the current Pacman position.
+    given the current Pacman position.
 
-        Arguments:
-            walls: The W x H grid of walls.
-            position: The current position of Pacman.
+    Arguments:
+        walls: The W x H grid of walls.
+        position: The current position of Pacman.
 
-        Returns:
-            The W x H x W x H transition matrix T_t. The element (i, j, k, l)
-            of T_t is the probability P(X_t = (k, l) | X_{t-1} = (i, j)) for
-            the ghost to move from (i, j) to (k, l).
+    Returns:
+        The W x H x W x H transition matrix T_t. The element (i, j, k, l)
+        of T_t is the probability P(X_t = (k, l) | X_{t-1} = (i, j)) for
+        the ghost to move from (i, j) to (k, l).
         """
-        T_t = np.zeros((walls.width, walls.height, walls.width, walls.height))
-        for i in range(walls.width):
-            for j in range(walls.height):
+        W, H = walls.width, walls.height
+        T_t = np.zeros((W, H, W, H))
+
+        def surrounding_tiles(x, y):
+            return [(x-1, y), (x+1, y), (x, y-1), (x, y+1)]
+
+        def out_of_bounds(x, y, max_x, max_y):
+            return x < 0 or y < 0 or x >= max_x or y >= max_y
+
+        def count_surrounding_walls(x, y, max_x, max_y, walls):
+            count = 0
+            for position in surrounding_tiles(x, y):
+                if not out_of_bounds(position[0], position[1], max_x, max_y) and walls[position[0]][position[1]]:
+                    count += 1
+            return count
+        
+        if (self.ghost == "fearless"):
+            fear_factor = 0.0
+
+        elif (self.ghost == "afraid"):
+            fear_factor = 1.0
+
+        else:
+            fear_factor = 3.0
+
+
+        for i in range(W):
+            for j in range(H):
                 if walls[i][j]:
                     continue
-                for k in range(walls.width):
-                    for l in range(walls.height):
-                        if walls[k][l]:
-                            continue
-                        if manhattanDistance((i, j), (k, l)) == 1:
-                            if manhattanDistance((k, l), position) < manhattanDistance((i, j), position):
-                                T_t[i][j][k][l] = 1
-                            else:
-                                if self.ghost == "terrified":
-                                    T_t[i][j][k][l] = 8
-                                elif self.ghost == "afraid":
-                                    T_t[i][j][k][l] = 2
-                                else:
-                                    T_t[i][j][k][l] = 1
-                T_t[i][j] = T_t[i][j]/np.sum(T_t[i][j])
+                weight = 0
+                neighbouring_tiles = surrounding_tiles(i, j)
+
+                for k, l in neighbouring_tiles:
+                    if not (out_of_bounds(k, l, W, H) or walls[k][l]):
+                        if manhattanDistance((k, l), position) < manhattanDistance((i, j), position):
+                            weight += 2**(fear_factor)
+                        else:
+                            weight += 1
+
+                for k, l in neighbouring_tiles:
+                    if not (out_of_bounds(k, l, W, H) or walls[k][l]):
+                        if manhattanDistance((k, l), position) < manhattanDistance((i, j), position):
+                            T_t[i, j, k, l] = (2**(fear_factor)) / weight
+                        else:
+                            T_t[i, j, k, l] = 1.0 / weight
+
+            T_t[i, j] /= np.sum(T_t[i, j])
 
         return T_t
+    
 
     def observation_matrix(self, walls, evidence, position):
         """
@@ -71,6 +100,7 @@ class BeliefStateAgent(Agent):
         O_t = np.zeros((width, height))
 
         n, p = 4, 0.5
+        probabilities = [scipy.stats.binom.pmf(i, n, p) for i in range(n + 1)]
 
         for x in range(width):
             for y in range(height):
@@ -79,17 +109,13 @@ class BeliefStateAgent(Agent):
 
                 true_distance = manhattanDistance(position, (x, y))
                 k = abs(evidence - true_distance)
-                # if k >= 2:
-                #     O_t[x, y] = 0
-                #     continue
-
-                noise_probability = scipy.stats.binom.pmf(k, n, p)
-                O_t[x, y] = noise_probability
+            
+                if k <= n:
+                    O_t[x, y] = probabilities[k]
 
         O_t /= np.sum(O_t)
 
         return O_t
-    
     
     def update(self, walls, belief, evidence, position):
         """Updates the previous ghost belief state
@@ -112,7 +138,7 @@ class BeliefStateAgent(Agent):
         O = self.observation_matrix(walls, evidence, position)
 
         width, height = walls.width, walls.height
-        new_belief = np.zeros((width, height))
+        new_belief = np.full((width, height), 0.0)
 
         for x in range(width):
             for y in range(height):
@@ -124,6 +150,7 @@ class BeliefStateAgent(Agent):
                     for j in range(height):
                         if walls[i][j]:
                             continue
+
                         transition_sum += T[i][j][x][y] * belief[i][j]
 
                 new_belief[x][y] = O[x][y] * transition_sum
@@ -190,6 +217,7 @@ class PacmanAgent(Agent):
 
         return actions
 
+
     def _get_action(self, walls, beliefs, eaten, position):
         """
     Arguments:
@@ -203,17 +231,10 @@ class PacmanAgent(Agent):
         """
 
         legal_actions = self.getLegalActions(position, walls)
-
+    
         max_belief_positions = []
-        
-        # print(beliefs)
-        
-        
+
         for i, belief in enumerate(beliefs):
-            
-            # print("belief : ", belief)
-            # print("i : ", i)
-            # print("eaten : ", eaten)
             if not eaten[i]:
                 max_belief_value = np.max(belief)
                 max_belief_positions.append([(x, y) for x in range(belief.shape[0]) for y in range(belief.shape[1]) if belief[x, y] == max_belief_value])
@@ -227,7 +248,7 @@ class PacmanAgent(Agent):
         if best_position:
             x, y = position
             best_x, best_y = best_position
-            # Calcul de la direction vers la meilleure position
+        
             if best_x < x:
                 best_action = Directions.WEST
             elif best_x > x:
@@ -237,97 +258,10 @@ class PacmanAgent(Agent):
             elif best_y > y:
                 best_action = Directions.NORTH
 
-        # Vérifier que la best_action fait partie des actions légales
         if best_action in legal_actions:
             return best_action
         else:
-            # Si aucune direction n'est possible parmi les meilleures options, retourner Directions.STOP
             return Directions.STOP
-
-        
-
-        #1) récupération des légales actions
-        #2) définir une best_action (init à Directions.STOP (départ))
-        #3) la meilleure action est celle qui nous rapproche le plus du centre du nuages de points 
-
-        # #Récupération legal action
-        # legal_actions = self.getLegalActions(position, walls)
-        
-        # #Position goal
-        # pos_goal = max(beliefs)
-        # pos_pacman = position
-        # ref_dist = manhattanDistance(pos_goal, pos_pacman)
-        # print(ref_dist)
-        # best_action = Directions.STOP
-
-        # print(legal_actions)
-        
-        # for actions in legal_actions:
-        #     if actions == Directions.SOUTH:
-        #         tmp_dist = manhattanDistance(pos_goal, (pos_pacman[0], pos_pacman[1] - 1))[0]
-        #         print(tmp_dist)
-        
-        #     elif actions == Directions.EAST:
-        #         tmp_dist = manhattanDistance(pos_goal, (pos_pacman[0] - 1, pos_pacman[1]))[0]
-        #         # print(tmp_dist)
-
-        #     elif actions == Directions.WEST:
-        #         tmp_dist = manhattanDistance(pos_goal, (pos_pacman[0] + 1, pos_pacman[1]))[0]
-
-        #     elif actions == Directions.NORTH:
-        #         tmp_dist = manhattanDistance(pos_goal, (pos_pacman[0], pos_pacman[1] + 1))[0]
-
-        #     if tmp_dist < ref_dist:
-        #         ref_dist = tmp_dist
-        #         best_action = actions
-
-                
-        # return best_action
-            
-
-######################
-    #BROUILLON
-
-          # direction_deltas = {
-        #     Directions.NORTH: (0, 1),
-        #     Directions.SOUTH: (0, -1),
-        #     Directions.EAST: (1, 0),
-        #     Directions.WEST: (-1, 0),
-        #     Directions.STOP: (0, 0)
-        # }
-
-        #best_action = Directions.STOP
-        #min_distance = float('inf')
-        #max_belief_positions = []
-
-        # for i, belief in enumerate(beliefs):
-        #     if eaten[i]:
-        #         continue
-            
-        #     O_t = self.observation_matrix(walls, evidences[i], position)
-            
-        #     belief_updated = self.update(walls, belief, evidences[i], position)
-
-        #     max_belief_position = np.unravel_index(np.argmax(belief_updated), belief_updated.shape)
-        #     max_belief_positions.append(max_belief_position)
-
-        # for action in legal_actions:
-        #     dx, dy = direction_deltas[action]
-        #     new_position = (position[0] + dx, position[1] + dy)
-
-        #     total = 0  
-        #     for max_belief_position in max_belief_positions:
-        #         total += manhattanDistance(new_position, max_belief_position)  
-        #     # distance = manhattanDistance(new_position, max_belief_position)
-
-        #     if total < min_distance:
-        #         min_distance = total
-        #         best_action = action
-
-        # # Retourne la meilleure action
-        # return best_action
-    
-    ######################################################""
 
     def get_action(self, state):
         """Given a Pacman game state, returns a legal move.
