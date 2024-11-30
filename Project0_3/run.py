@@ -24,7 +24,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '-a',
         '--agent',
-        default='bayesfilter',
+        default='bayesfilterB',
         help='Python module containing `PacmanAgent` and `BeliefStateAgent` classes.',
     )
 
