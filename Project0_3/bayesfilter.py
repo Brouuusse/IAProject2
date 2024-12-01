@@ -280,9 +280,3 @@ class PacmanAgent(Agent):
             state.getGhostEaten(),
             state.getPacmanPosition(),
         )
-        return self._get_action(
-            state.getWalls(),
-            state.getGhostBeliefStates(),
-            state.getGhostEaten(),
-            state.getPacmanPosition(),
-        )
