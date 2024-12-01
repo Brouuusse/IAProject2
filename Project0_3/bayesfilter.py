@@ -20,39 +20,36 @@ class BeliefStateAgent(Agent):
             T_t = P(X_t | X_{t-1})
 
         given the current Pacman position.
-        """
-        width, height = walls.width, walls.height
-        T_t = np.zeros((width, height, width, height))
-        
-        distance_map = np.zeros((width, height), dtype=int)
-        for i in range(width):
-            for j in range(height):
-                if not walls[i][j]:
-                    distance_map[i, j] = manhattanDistance(position, (i, j))
 
-        for i in range(width):
-            for j in range(height):
+        Arguments:
+            walls: The W x H grid of walls.
+            position: The current position of Pacman.
+
+        Returns:
+            The W x H x W x H transition matrix T_t. The element (i, j, k, l)
+            of T_t is the probability P(X_t = (k, l) | X_{t-1} = (i, j)) for
+            the ghost to move from (i, j) to (k, l).
+        """
+        T_t = np.zeros((walls.width, walls.height, walls.width, walls.height))
+        for i in range(walls.width):
+            for j in range(walls.height):
                 if walls[i][j]:
                     continue
-                for k in range(width):
-                    for l in range(height):
+                for k in range(walls.width):
+                    for l in range(walls.height):
                         if walls[k][l]:
                             continue
-
-                        dist = manhattanDistance((i, j), (k, l))
-                        if dist == 1:
-                            if distance_map[k, l] < distance_map[i, j]:
-                                T_t[i, j, k, l] = 1
+                        if manhattanDistance((i, j), (k, l)) == 1:
+                            if manhattanDistance((k, l), position) < manhattanDistance((i, j), position):
+                                T_t[i][j][k][l] = 1
                             else:
                                 if self.ghost == "terrified":
-                                    T_t[i, j, k, l] = 0.8  # Ghost fleeing
+                                    T_t[i][j][k][l] = 8
                                 elif self.ghost == "afraid":
-                                    T_t[i, j, k, l] = 0.5  # Ghost running away
+                                    T_t[i][j][k][l] = 2
                                 else:
-                                    T_t[i, j, k, l] = 0.2  # Ghost moving randomly
-                row_sum = np.sum(T_t[i, j])
-                if row_sum > 0:
-                    T_t[i, j] /= row_sum
+                                    T_t[i][j][k][l] = 1
+                T_t[i][j] = T_t[i][j]/np.sum(T_t[i][j])
 
         return T_t
 
@@ -258,7 +255,6 @@ class PacmanAgent(Agent):
 
         if not best_action:
             best_action = Directions.STOP
-
         return best_action
 
 
