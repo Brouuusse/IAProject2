@@ -1,6 +1,6 @@
 import numpy as np
 import scipy.stats
-from pacman_module.game import Agent, Directions, manhattanDistance
+from pacman_module.game import Agent, Directions, manhattanDistance, PriorityQueue
 
 from collections import deque
 
@@ -236,61 +236,109 @@ class PacmanAgent(Agent):
         return float('inf')  # No path found
 
     def _get_action(self, walls, beliefs, eaten, position):
+        """
+        Arguments:
+            walls: The W x H grid of walls.
+            beliefs: The list of current ghost belief states.
+            eaten: A list of booleans indicating which ghosts have been eaten.
+            position: The current position of Pacman.
+
+        Returns:
+            A legal move as defined in `game.Directions`.
+        """
+        best_action = Directions.STOP
+        best_position = (0, 0)
+        min_distance = float("inf")
+
         if self.target == -1 or eaten[self.target]:
-            ghost_positions = []
-            for i, belief in enumerate(beliefs):
-                if not eaten[i]:
-                    max_belief_value = np.max(belief)
-                    if max_belief_value > 0:
-                        max_positions = [(x, y) for x in range(belief.shape[0]) for y in range(belief.shape[1]) if belief[x, y] == max_belief_value]
-                        for pos in max_positions:
-                            ghost_positions.append((i, pos))
-
-            best_position = None
-            best_ghost = None
-            if ghost_positions:
-                best_ghost, best_position = min(ghost_positions, key=lambda g: self.bfs_distance(position, g[1], walls))  # Utilisation de self
-
-            self.target = best_ghost
+            for ghost_index in range(len(beliefs)):
+                max_belief = 0
+                candidate_position = (0, 0)
+                if eaten[ghost_index]:
+                    continue
+                for x in range(walls.width):
+                    for y in range(walls.height):
+                        belief_sum = 0
+                        neighbor_count = 0
+                        if walls[x][y]:
+                            continue
+                        x_min = max(0, x - 1)
+                        x_max = min(walls.width, x + 2)
+                        for neighbor_x in range(x_min, x_max):
+                            y_min = max(0, y - 1)
+                            y_max = min(walls.height, y + 2)
+                            for neighbor_y in range(y_min, y_max):
+                                if walls[neighbor_x][neighbor_y]:
+                                    continue
+                                belief_sum += beliefs[ghost_index][neighbor_x][neighbor_y]
+                                neighbor_count += 1
+                        if belief_sum > max_belief:
+                            max_belief = belief_sum
+                            candidate_position = (x, y)
+                if manhattanDistance(position, candidate_position) < min_distance:
+                    min_distance = manhattanDistance(position, candidate_position)
+                    best_position = candidate_position
+                    self.target = ghost_index
         else:
             max_belief = 0
-            for j in range(walls.width):
-                for k in range(walls.height):
-                    if walls[j][k]:
+            for x in range(walls.width):
+                for y in range(walls.height):
+                    if walls[x][y]:
                         continue
-                    if beliefs[self.target][j][k] > max_belief:
-                        max_belief = beliefs[self.target][j][k]
-                        best_position = (j, k)
+                    if beliefs[self.target][x][y] > max_belief:
+                        max_belief = beliefs[self.target][x][y]
+                        best_position = (x, y)
 
-        future_positions = self.simulate_future_positions(position, walls, depth=3)
-        best_future_position = min(future_positions, key=lambda p: self.bfs_distance(p, best_position, walls))  # Utilisation de self
-        if self.bfs_distance(position, best_position, walls) <= self.bfs_distance(best_future_position, best_position, walls):  # Utilisation de self
-            return Directions.STOP
-        
-        legal_actions = self.getLegalActions(position, walls)
-        best_action = None
-        min_distance = float('inf')
+        priority_queue = PriorityQueue()
+        priority_queue.push((position, [], 0), manhattanDistance(position, best_position))
+        visited_positions = []
+        target_beliefs = beliefs[self.target]
+        weighted_x = target_beliefs * np.arange(walls.width)[:, np.newaxis]
+        weighted_y = np.sum(target_beliefs * np.arange(walls.height), axis=1)
+        candidate_best_position = best_position
+        best_position = (int(np.sum(weighted_x)), int(np.sum(weighted_y)))
 
-        for action in legal_actions:
-            if action == Directions.NORTH:
-                new_position = (position[0], position[1] + 1)
-            elif action == Directions.SOUTH:
-                new_position = (position[0], position[1] - 1)
-            elif action == Directions.EAST:
-                new_position = (position[0] + 1, position[1])
-            elif action == Directions.WEST:
-                new_position = (position[0] - 1, position[1])
-            else:
-                new_position = position
+        if position == best_position or walls[best_position[0]][best_position[1]]:
+            best_position = candidate_best_position
 
-            distance = self.bfs_distance(new_position, best_position, walls)  # Utilisation de self
+        direction_priorities = []
+        direction_north = (best_position[0] - position[0], Directions.NORTH)
+        direction_south = (position[0] - best_position[0], Directions.SOUTH)
+        direction_east = (best_position[1] - position[1], Directions.EAST)
+        direction_west = (position[1] - best_position[1], Directions.WEST)
+        direction_priorities.append(direction_north)
+        direction_priorities.append(direction_south)
+        direction_priorities.append(direction_east)
+        direction_priorities.append(direction_west)
+        direction_priorities.sort(key=lambda direction: direction[0])
 
-            if distance < min_distance:
-                min_distance = distance
-                best_action = action
+        while True:
+            if priority_queue.isEmpty():
+                return Directions.STOP
+            _, ((current_x, current_y), current_path, cost) = priority_queue.pop()
+            if (current_x, current_y) == best_position and current_path:
+                best_action = current_path[0]
+                break
+            if (current_x, current_y) in visited_positions:
+                continue
+            visited_positions.append((current_x, current_y))
+            potential_moves = []
+            for _, action in direction_priorities:
+                if action == Directions.NORTH:
+                    potential_moves.append((current_x, current_y + 1, action))
+                elif action == Directions.SOUTH:
+                    potential_moves.append((current_x, current_y - 1, action))
+                elif action == Directions.EAST:
+                    potential_moves.append((current_x + 1, current_y, action))
+                elif action == Directions.WEST:
+                    potential_moves.append((current_x - 1, current_y, action))
 
-        if not best_action:
-            best_action = Directions.STOP
+            for next_x, next_y, action in potential_moves:
+                if not walls[next_x][next_y] and (next_x, next_y):
+                    priority_queue.push(
+                        ((next_x, next_y), current_path + [action], cost + 1),
+                        cost + 1 + manhattanDistance((next_x, next_y), best_position),
+                    )
         return best_action
 
     def get_action(self, state):
