@@ -2,6 +2,8 @@ import numpy as np
 import scipy.stats
 from pacman_module.game import Agent, Directions, manhattanDistance
 
+from collections import deque
+
 class BeliefStateAgent(Agent):
     """Belief state agent.
 
@@ -143,7 +145,6 @@ class BeliefStateAgent(Agent):
 
         return new_beliefs
 
-
 class PacmanAgent(Agent):
     """Pacman agent that tries to eat ghosts given belief states."""
 
@@ -197,7 +198,42 @@ class PacmanAgent(Agent):
 
         return list(possible_positions)
 
+    def bfs_distance(self, start, goal, walls):
+        """
+        Calculate the shortest distance between start and goal using BFS.
 
+        Arguments:
+        - start: Tuple (x, y), starting position.
+        - goal: Tuple (x, y), target position.
+        - walls: Grid of booleans where True indicates a wall.
+
+        Returns:
+        - Integer representing the shortest path length, or float('inf') if no path exists.
+        """
+        if start == goal:
+            return 0
+
+        queue = deque([(start, 0)])  # Each entry is (position, distance)
+        visited = set()
+        visited.add(start)
+
+        while queue:
+            current, dist = queue.popleft()
+            x, y = current
+
+            # Explore neighbors
+            for dx, dy in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
+                neighbor = (x + dx, y + dy)
+                if neighbor == goal:
+                    return dist + 1
+                if (0 <= neighbor[0] < walls.width and
+                    0 <= neighbor[1] < walls.height and
+                    not walls[neighbor[0]][neighbor[1]] and
+                    neighbor not in visited):
+                    visited.add(neighbor)
+                    queue.append((neighbor, dist + 1))
+
+        return float('inf')  # No path found
 
     def _get_action(self, walls, beliefs, eaten, position):
         if self.target == -1 or eaten[self.target]:
@@ -213,7 +249,7 @@ class PacmanAgent(Agent):
             best_position = None
             best_ghost = None
             if ghost_positions:
-                best_ghost, best_position = min(ghost_positions, key=lambda g: manhattanDistance(position, g[1]))
+                best_ghost, best_position = min(ghost_positions, key=lambda g: self.bfs_distance(position, g[1], walls))  # Utilisation de self
 
             self.target = best_ghost
         else:
@@ -227,8 +263,8 @@ class PacmanAgent(Agent):
                         best_position = (j, k)
 
         future_positions = self.simulate_future_positions(position, walls, depth=3)
-        best_future_position = min(future_positions, key=lambda p: manhattanDistance(p, best_position))
-        if manhattanDistance(position, best_position) <= manhattanDistance(best_future_position, best_position):
+        best_future_position = min(future_positions, key=lambda p: self.bfs_distance(p, best_position, walls))  # Utilisation de self
+        if self.bfs_distance(position, best_position, walls) <= self.bfs_distance(best_future_position, best_position, walls):  # Utilisation de self
             return Directions.STOP
         
         legal_actions = self.getLegalActions(position, walls)
@@ -247,7 +283,7 @@ class PacmanAgent(Agent):
             else:
                 new_position = position
 
-            distance = manhattanDistance(new_position, best_position)
+            distance = self.bfs_distance(new_position, best_position, walls)  # Utilisation de self
 
             if distance < min_distance:
                 min_distance = distance
@@ -256,7 +292,6 @@ class PacmanAgent(Agent):
         if not best_action:
             best_action = Directions.STOP
         return best_action
-
 
     def get_action(self, state):
         """Given a Pacman game state, returns a legal move.
