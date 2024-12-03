@@ -19,74 +19,75 @@ class BeliefStateAgent(Agent):
 
     def transition_matrix(self, walls, position):
         """Builds the transition matrix with optimizations for performance."""
-        W, H = walls.width, walls.height
+        grid_width, grid_height = walls.width, walls.height
 
         walls_array = np.array(walls.data)
 
-        T_t = np.zeros((W, H, W, H))
+        transition_matrix = np.zeros((grid_width, grid_height, grid_width, grid_height))
 
-        grid = np.array([(i, j) for i in range(W) for j in range(H) if not walls_array[i, j]])
-        positions = {tuple(pos): idx for idx, pos in enumerate(grid)}
+        valid_positions = np.array([(x, y) for x in range(grid_width) for y in range(grid_height) if not walls_array[x, y]])
+        position_indices = {tuple(pos): idx for idx, pos in enumerate(valid_positions)}
 
-        all_distances = cdist(grid, grid, metric='cityblock')
+        distance_matrix = cdist(valid_positions, valid_positions, metric='cityblock')
 
-        for (i, j), idx in positions.items():
-            neighbors_idx = np.where(all_distances[idx] == 1)[0]
-            neighbors = grid[neighbors_idx]
+        for (current_x, current_y), current_idx in position_indices.items():
+            neighbor_indices = np.where(distance_matrix[current_idx] == 1)[0]
+            neighbors = valid_positions[neighbor_indices]
 
             distances_to_pacman = np.array([manhattanDistance(tuple(neighbor), position) for neighbor in neighbors])
-            current_to_pacman = manhattanDistance((i, j), position)
-            
-            for neighbor, dist_to_pacman in zip(neighbors, distances_to_pacman):
-                k, l = neighbor
-                if dist_to_pacman < current_to_pacman:
-                    T_t[i, j, k, l] = 1
+            current_distance_to_pacman = manhattanDistance((current_x, current_y), position)
+
+            for neighbor, neighbor_distance_to_pacman in zip(neighbors, distances_to_pacman):
+                neighbor_x, neighbor_y = neighbor
+                if neighbor_distance_to_pacman < current_distance_to_pacman:
+                    transition_matrix[current_x, current_y, neighbor_x, neighbor_y] = 1
                 else:
                     if self.ghost == "terrified":
-                        T_t[i, j, k, l] = 8
+                        transition_matrix[current_x, current_y, neighbor_x, neighbor_y] = 8
                     elif self.ghost == "afraid":
-                        T_t[i, j, k, l] = 2
+                        transition_matrix[current_x, current_y, neighbor_x, neighbor_y] = 2
                     else:
-                        T_t[i, j, k, l] = 1
+                        transition_matrix[current_x, current_y, neighbor_x, neighbor_y] = 1
 
-            T_t[i, j] /= np.sum(T_t[i, j])
+            transition_matrix[current_x, current_y] /= np.sum(transition_matrix[current_x, current_y])
 
-        return T_t
+        return transition_matrix
+
 
     def observation_matrix(self, walls, evidence, position):
-        """
-        Optimized version of observation matrix O_t = P(e_t | X_t)
-        
+        """Builds the observation matrix
+
+            O_t = P(e_t | X_t)
+
+        given a noisy ghost distance evidence e_t and the current Pacman
+        position.
+
         Arguments:
             walls: The W x H grid of walls.
             evidence: A noisy ghost distance evidence e_t.
             position: The current position of Pacman.
-        
+
         Returns:
             The W x H observation matrix O_t.
         """
-        width, height = walls.width, walls.height
-        O_t = np.zeros((width, height))
+        observation_matrix = np.zeros((walls.width, walls.height))
+        probability_distribution = [0.0625, 0.25, 0.375, 0.25, 0.0625]
+        
+        for x in range(walls.width):
+            for y in range(walls.height):
+                if walls[x][y]:
+                    continue
+                manhattan_difference = abs(manhattanDistance((x, y), position) - evidence)
+                if manhattan_difference <= 2:
+                    probability_index = evidence - manhattanDistance((x, y), position) + 2
+                    observation_matrix[x][y] = probability_distribution[probability_index]
+        
+        return observation_matrix
 
-        valid_positions = np.array([[x, y] for x in range(width) for y in range(height) if not walls[x][y]])
-
-        valid_x = valid_positions[:, 0]
-        valid_y = valid_positions[:, 1]
-        dx = valid_x - position[0]
-        dy = valid_y - position[1]
-        true_distances = np.abs(dx) + np.abs(dy)
-
-        noise = np.abs(evidence - true_distances)
-
-        O_t[valid_x, valid_y] = np.exp(-0.5 * (noise ** 2)) / np.sqrt(2 * np.pi)
-
-        O_t /= np.sum(O_t)
-
-        return O_t
 
 
     def update(self, walls, belief, evidence, position):
-        """Updates the previous ghost belief state
+        """Updates the previous ghost belief state.
 
         b_{t-1} = P(X_{t-1} | e_{1:t-1})
 
@@ -99,22 +100,22 @@ class BeliefStateAgent(Agent):
         Returns:
             The updated ghost belief state b_t as a W x H matrix.
         """
-    
-        T = self.transition_matrix(walls, position)
-        O = self.observation_matrix(walls, evidence, position)
+        transition_matrix = self.transition_matrix(walls, position)
+        observation_matrix = self.observation_matrix(walls, evidence, position)
 
-        width, height = walls.width, walls.height
-        new_belief = np.zeros((width, height))
+        grid_width, grid_height = walls.width, walls.height
+        updated_belief = np.zeros((grid_width, grid_height))
 
-        valid_positions = np.array([[x, y] for x in range(width) for y in range(height) if not walls[x][y]])
+        valid_positions = np.array([[x, y] for x in range(grid_width) for y in range(grid_height) if not walls[x][y]])
 
-        for x, y in valid_positions:
-            transition_sum = np.sum(T[:, :, x, y] * belief)
-            new_belief[x, y] = O[x, y] * transition_sum
+        for current_x, current_y in valid_positions:
+            transition_probability_sum = np.sum(transition_matrix[:, :, current_x, current_y] * belief)
+            updated_belief[current_x, current_y] = observation_matrix[current_x, current_y] * transition_probability_sum
 
-        new_belief /= np.sum(new_belief)
+        updated_belief /= np.sum(updated_belief)
 
-        return new_belief
+        return updated_belief
+
 
     def get_action(self, state):
         """Updates the previous belief states given the current state.
@@ -151,10 +152,6 @@ class BeliefStateAgent(Agent):
 
 
 
-
-
-
-
 class PacmanAgent(Agent):
     """Pacman agent that tries to eat ghosts given belief states."""
 
@@ -177,7 +174,6 @@ class PacmanAgent(Agent):
             best_position, self.target = self._get_best_target_position(walls, beliefs, eaten, position)
         else:
             best_position = self._get_best_position_for_target(walls, beliefs, position)
-        
         return self._find_best_action_to_target(walls, position, best_position)
 
 
@@ -274,7 +270,6 @@ class PacmanAgent(Agent):
 
 
 
-
     def _get_direction_priorities(self, position, best_position):
         delta_x = best_position[0] - position[0]
         delta_y = best_position[1] - position[1]
@@ -313,9 +308,6 @@ class PacmanAgent(Agent):
                     ((next_x, next_y), current_path + [action], new_cost),
                     priority
                 )
-
-
-
 
 
 
@@ -430,7 +422,7 @@ class PacmanAgent(Agent):
     #                 )
 
     #     return best_action
-    
+
 
 
     def get_action(self, state):
