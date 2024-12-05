@@ -162,6 +162,7 @@ class PacmanAgent(Agent):
     def __init__(self):
         super().__init__()
         self.target = -1
+        self.count = 0
 
     def _get_action(self, walls, beliefs, eaten, position):
         """
@@ -174,10 +175,14 @@ class PacmanAgent(Agent):
         Returns:
             A legal move as defined in `game.Directions`.
         """
-        if self.target == -1 or eaten[self.target]:
+        if self.count > 0 and self.target == -1 or eaten[self.target]:
+        # if self.target == -1 or eaten[self.target]:
+
             best_position, self.target = self._get_best_target_position(walls, beliefs, eaten, position)
         else:
             best_position = self._get_best_position_for_target(walls, beliefs, position)
+            if self.count <= 1:
+                self.count += 1
         return self._find_best_action_to_target(walls, position, best_position)
 
 
@@ -190,6 +195,9 @@ class PacmanAgent(Agent):
             for ghost_index in range(len(beliefs))
             if not eaten[ghost_index]
         ]
+        
+        if not candidates:
+            return best_position, best_target
         
         best_position, best_target = min(
             candidates, 
