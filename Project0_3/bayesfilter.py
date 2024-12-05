@@ -82,6 +82,10 @@ class BeliefStateAgent(Agent):
                     probability_index = evidence - manhattanDistance((x, y), position) + 2
                     observation_matrix[x][y] = probability_distribution[probability_index]
         
+        total_sum = np.sum(observation_matrix)
+        if total_sum > 0:
+            observation_matrix /= total_sum
+
         return observation_matrix
 
 
