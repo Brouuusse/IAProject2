@@ -181,7 +181,7 @@ class PacmanAgent(Agent):
             best_position, self.target = self._get_best_target_position(walls, beliefs, eaten, position)
         else:
             best_position = self._get_best_position_for_target(walls, beliefs, position)
-            if self.count <= 1:
+            if self.count < 1:
                 self.count += 1
         return self._find_best_action_to_target(walls, position, best_position)
 
