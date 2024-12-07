@@ -1,9 +1,7 @@
 import numpy as np
-import scipy.stats
 from scipy.stats import binom
 from pacman_module.game import Agent, Directions, manhattanDistance, PriorityQueue
 
-from collections import deque
 from scipy.spatial.distance import cdist
 
 
@@ -20,7 +18,22 @@ class BeliefStateAgent(Agent):
 
 
     def transition_matrix(self, walls, position):
-        """Builds the transition matrix with optimizations for performance."""
+        """Builds the transition matrix
+
+            T_t = P(X_t | X_{t-1})
+
+        given the current Pacman position.
+
+        Arguments:
+            walls: The W x H grid of walls.
+            position: The current position of Pacman.
+
+        Returns:
+            The W x H x W x H transition matrix T_t. The element (i, j, k, l)
+            of T_t is the probability P(X_t = (k, l) | X_{t-1} = (i, j)) for
+            the ghost to move from (i, j) to (k, l).
+        """
+        
         grid_width, grid_height = walls.width, walls.height
 
         walls_array = np.array(walls.data)
@@ -92,10 +105,24 @@ class BeliefStateAgent(Agent):
 
 
     def observation_matrix(self, walls, evidence, position, max_distance=4, p=0.5):
-        """Optimized observation matrix with precomputed probabilities."""
+        """Builds the observation matrix
+
+            O_t = P(e_t | X_t)
+
+        given a noisy ghost distance evidence e_t and the current Pacman
+        position.
+
+        Arguments:
+            walls: The W x H grid of walls.
+            evidence: A noisy ghost distance evidence e_t.
+            position: The current position of Pacman.
+
+        Returns:
+            The W x H observation matrix O_t.
+        """
+        
         observation_matrix = np.zeros((walls.width, walls.height))
 
-        # Precompute binomial probabilities for distances
         n = max_distance
         probability_distribution = binom.pmf(np.arange(0, n + 1), n, p)
         
@@ -116,9 +143,12 @@ class BeliefStateAgent(Agent):
 
 
     def update(self, walls, belief, evidence, position):
-        """Updates the previous ghost belief state.
+        """Updates the previous ghost belief state
 
-        b_{t-1} = P(X_{t-1} | e_{1:t-1})
+            b_{t-1} = P(X_{t-1} | e_{1:t-1})
+
+        given a noisy ghost distance evidence e_t and the current Pacman
+        position.
 
         Arguments:
             walls: The W x H grid of walls.
@@ -129,6 +159,7 @@ class BeliefStateAgent(Agent):
         Returns:
             The updated ghost belief state b_t as a W x H matrix.
         """
+        
         transition_matrix = self.transition_matrix(walls, position)
         observation_matrix = self.observation_matrix(walls, evidence, position)
 
@@ -200,6 +231,7 @@ class PacmanAgent(Agent):
         Returns:
             A legal move as defined in `game.Directions`.
         """
+        
         if self.count and self.target == -1 or eaten[self.target]:
         # if self.target == -1 or eaten[self.target]:
 
@@ -305,8 +337,6 @@ class PacmanAgent(Agent):
             self._expand_priority_queue(walls, current_x, current_y, current_path, cost, best_position, priority_queue, direction_priorities)
 
         return Directions.STOP
-
-
 
     def _get_direction_priorities(self, position, best_position):
         delta_x = best_position[0] - position[0]
