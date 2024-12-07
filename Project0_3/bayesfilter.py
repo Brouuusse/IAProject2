@@ -1,9 +1,11 @@
 import numpy as np
 import scipy.stats
+from scipy.stats import binom
 from pacman_module.game import Agent, Directions, manhattanDistance, PriorityQueue
 
 from collections import deque
 from scipy.spatial.distance import cdist
+
 
 class BeliefStateAgent(Agent):
     """Belief state agent.
@@ -54,34 +56,57 @@ class BeliefStateAgent(Agent):
         return transition_matrix
 
 
-    def observation_matrix(self, walls, evidence, position):
-        """Builds the observation matrix
+    # def observation_matrix(self, walls, evidence, position):
+    #     """Builds the observation matrix
 
-            O_t = P(e_t | X_t)
+    #         O_t = P(e_t | X_t)
 
-        given a noisy ghost distance evidence e_t and the current Pacman
-        position.
+    #     given a noisy ghost distance evidence e_t and the current Pacman
+    #     position.
 
-        Arguments:
-            walls: The W x H grid of walls.
-            evidence: A noisy ghost distance evidence e_t.
-            position: The current position of Pacman.
+    #     Arguments:
+    #         walls: The W x H grid of walls.
+    #         evidence: A noisy ghost distance evidence e_t.
+    #         position: The current position of Pacman.
 
-        Returns:
-            The W x H observation matrix O_t.
-        """
+    #     Returns:
+    #         The W x H observation matrix O_t.
+    #     """
+    #     observation_matrix = np.zeros((walls.width, walls.height))
+    #     probability_distribution = [0.0625, 0.25, 0.375, 0.25, 0.0625]
+        
+    #     for x in range(walls.width):
+    #         for y in range(walls.height):
+    #             if walls[x][y]:
+    #                 continue
+    #             manhattan_difference = abs(manhattanDistance((x, y), position) - evidence)
+    #             if manhattan_difference <= 2:
+    #                 probability_index = evidence - manhattanDistance((x, y), position) + 2
+    #                 observation_matrix[x][y] = probability_distribution[probability_index]
+        
+    #     total_sum = np.sum(observation_matrix)
+    #     if total_sum > 0:
+    #         observation_matrix /= total_sum
+
+    #     return observation_matrix
+
+
+    def observation_matrix(self, walls, evidence, position, max_distance=4, p=0.5):
+        """Optimized observation matrix with precomputed probabilities."""
         observation_matrix = np.zeros((walls.width, walls.height))
-        probability_distribution = [0.0625, 0.25, 0.375, 0.25, 0.0625]
+
+        # Precompute binomial probabilities for distances
+        n = max_distance
+        probability_distribution = binom.pmf(np.arange(0, n + 1), n, p)
         
         for x in range(walls.width):
             for y in range(walls.height):
                 if walls[x][y]:
                     continue
                 manhattan_difference = abs(manhattanDistance((x, y), position) - evidence)
-                if manhattan_difference <= 2:
-                    probability_index = evidence - manhattanDistance((x, y), position) + 2
-                    observation_matrix[x][y] = probability_distribution[probability_index]
-        
+                if manhattan_difference <= max_distance:
+                    observation_matrix[x][y] = probability_distribution[manhattan_difference]
+
         total_sum = np.sum(observation_matrix)
         if total_sum > 0:
             observation_matrix /= total_sum
