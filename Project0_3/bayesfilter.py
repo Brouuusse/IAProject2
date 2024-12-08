@@ -14,6 +14,7 @@ class BeliefStateAgent(Agent):
     def __init__(self, ghost):
         super().__init__()
         self.ghost = ghost
+        self.probability_distribution = binom.pmf(np.arange(0, 4 + 1), 4, 0.5)
 
     def transition_matrix(self, walls, position):
         """Builds the transition matrix
@@ -66,7 +67,7 @@ class BeliefStateAgent(Agent):
             
         return transition_matrix
 
-    def observation_matrix(self, walls, evidence, position, max_distance=4, p=0.5):
+    def observation_matrix(self, walls, evidence, position):
         """Builds the observation matrix
 
             O_t = P(e_t | X_t)
@@ -84,9 +85,6 @@ class BeliefStateAgent(Agent):
         """
         
         observation_matrix = np.zeros((walls.width, walls.height))
-
-        n = max_distance
-        probability_distribution = binom.pmf(np.arange(0, n + 1), n, p)
         
         for x in range(walls.width):
             for y in range(walls.height):
@@ -96,7 +94,7 @@ class BeliefStateAgent(Agent):
                 difference = evidence - manhattan_distance
                 if abs(difference) <= 2:
                     probability_index = difference + 2
-                    observation_matrix[x][y] = probability_distribution[probability_index]
+                    observation_matrix[x][y] = self.probability_distribution[probability_index]
 
 
         total_sum = np.sum(observation_matrix)
@@ -179,7 +177,7 @@ class PacmanAgent(Agent):
     def __init__(self):
         super().__init__()
         self.target = -1
-        self.count = False
+        self.has_moved = False
 
     def _get_action(self, walls, beliefs, eaten, position):
         """
@@ -193,12 +191,12 @@ class PacmanAgent(Agent):
             A legal move as defined in `game.Directions`.
         """
         
-        if self.count and self.target == -1 or eaten[self.target]:
+        if self.has_moved and self.target == -1 or eaten[self.target]:
             best_position, self.target = self._get_best_target_position(walls, beliefs, eaten, position)
         else:
             best_position = self._get_best_position_for_target(walls, beliefs, position)
-            if not self.count:
-                self.count = True
+            if not self.has_moved:
+                self.has_moved = True
         return self._find_best_action_to_target(walls, position, best_position)
 
 
