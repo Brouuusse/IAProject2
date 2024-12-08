@@ -204,7 +204,7 @@ class PacmanAgent(Agent):
 
     def _get_best_target_position(self, walls, beliefs, eaten, position):
         best_position = (0, 0)
-        best_target = self.target
+        best_target = -1
         
         candidates = [
             (self._get_candidate_position_for_ghost(walls, beliefs, ghost_index), ghost_index)
