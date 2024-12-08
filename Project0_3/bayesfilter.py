@@ -4,7 +4,6 @@ from pacman_module.game import Agent, Directions, manhattanDistance, PriorityQue
 
 from scipy.spatial.distance import cdist
 
-
 class BeliefStateAgent(Agent):
     """Belief state agent.
 
@@ -15,7 +14,6 @@ class BeliefStateAgent(Agent):
     def __init__(self, ghost):
         super().__init__()
         self.ghost = ghost
-
 
     def transition_matrix(self, walls, position):
         """Builds the transition matrix
@@ -68,42 +66,6 @@ class BeliefStateAgent(Agent):
             
         return transition_matrix
 
-
-    # def observation_matrix(self, walls, evidence, position):
-    #     """Builds the observation matrix
-
-    #         O_t = P(e_t | X_t)
-
-    #     given a noisy ghost distance evidence e_t and the current Pacman
-    #     position.
-
-    #     Arguments:
-    #         walls: The W x H grid of walls.
-    #         evidence: A noisy ghost distance evidence e_t.
-    #         position: The current position of Pacman.
-
-    #     Returns:
-    #         The W x H observation matrix O_t.
-    #     """
-    #     observation_matrix = np.zeros((walls.width, walls.height))
-    #     probability_distribution = [0.0625, 0.25, 0.375, 0.25, 0.0625]
-        
-    #     for x in range(walls.width):
-    #         for y in range(walls.height):
-    #             if walls[x][y]:
-    #                 continue
-    #             manhattan_difference = abs(manhattanDistance((x, y), position) - evidence)
-    #             if manhattan_difference <= 2:
-    #                 probability_index = evidence - manhattanDistance((x, y), position) + 2
-    #                 observation_matrix[x][y] = probability_distribution[probability_index]
-        
-    #     total_sum = np.sum(observation_matrix)
-    #     if total_sum > 0:
-    #         observation_matrix /= total_sum
-
-    #     return observation_matrix
-
-
     def observation_matrix(self, walls, evidence, position, max_distance=4, p=0.5):
         """Builds the observation matrix
 
@@ -130,18 +92,19 @@ class BeliefStateAgent(Agent):
             for y in range(walls.height):
                 if walls[x][y]:
                     continue
-                manhattan_difference = abs(manhattanDistance((x, y), position) - evidence)
-                if manhattan_difference <= max_distance:
-                    observation_matrix[x][y] = probability_distribution[manhattan_difference]
+                manhattan_distance = manhattanDistance((x, y), position)
+                difference = evidence - manhattan_distance
+                if abs(difference) <= 2:
+                    probability_index = difference + 2
+                    observation_matrix[x][y] = probability_distribution[probability_index]
+
 
         total_sum = np.sum(observation_matrix)
         if total_sum > 0:
             observation_matrix /= total_sum
 
         return observation_matrix
-
-
-
+ 
     def update(self, walls, belief, evidence, position):
         """Updates the previous ghost belief state
 
@@ -210,8 +173,6 @@ class BeliefStateAgent(Agent):
 
         return new_beliefs
 
-
-
 class PacmanAgent(Agent):
     """Pacman agent that tries to eat ghosts given belief states."""
 
@@ -233,20 +194,17 @@ class PacmanAgent(Agent):
         """
         
         if self.count and self.target == -1 or eaten[self.target]:
-        # if self.target == -1 or eaten[self.target]:
-
             best_position, self.target = self._get_best_target_position(walls, beliefs, eaten, position)
         else:
             best_position = self._get_best_position_for_target(walls, beliefs, position)
             if not self.count:
                 self.count = True
-                # print("belief", beliefs[0])
         return self._find_best_action_to_target(walls, position, best_position)
 
 
     def _get_best_target_position(self, walls, beliefs, eaten, position):
         best_position = (0, 0)
-        best_target = -1
+        best_target = self.target
         
         candidates = [
             (self._get_candidate_position_for_ghost(walls, beliefs, ghost_index), ghost_index)
@@ -284,9 +242,6 @@ class PacmanAgent(Agent):
                     best_position = (x, y)
         
         return best_position
-
-    
-    
     
     def _get_candidate_position_for_ghost(self, walls, beliefs, ghost_index):
         max_belief = 0
@@ -314,8 +269,6 @@ class PacmanAgent(Agent):
                     candidate_position = (x, y)
 
         return candidate_position
-
-    
 
     def _find_best_action_to_target(self, walls, position, best_position):
         priority_queue = PriorityQueue()
