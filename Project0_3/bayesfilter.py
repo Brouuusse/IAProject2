@@ -10,11 +10,11 @@ class BeliefStateAgent(Agent):
     Arguments:
         ghost: The type of ghost (as a string).
     """
+    probability_distribution = binom.pmf(np.arange(0, 4 + 1), 4, 0.5)
 
     def __init__(self, ghost):
         super().__init__()
         self.ghost = ghost
-        self.probability_distribution = binom.pmf(np.arange(0, 4 + 1), 4, 0.5)
 
     def transition_matrix(self, walls, position):
         """Builds the transition matrix
@@ -94,7 +94,7 @@ class BeliefStateAgent(Agent):
                 difference = evidence - manhattan_distance
                 if abs(difference) <= 2:
                     probability_index = difference + 2
-                    observation_matrix[x][y] = self.probability_distribution[probability_index]
+                    observation_matrix[x][y] = BeliefStateAgent.probability_distribution[probability_index]
 
 
         total_sum = np.sum(observation_matrix)
